@@ -846,19 +846,6 @@ function renderMemberList() {
   }
 
   members.sort((a, b) => {
-    const masterA = state.guildData[a.guild]?.guild_master_name === a.name;
-    const masterB = state.guildData[b.guild]?.guild_master_name === b.name;
-    
-    const rankA = masterA ? '길드마스터' : (Store.getMemberRanks()[a.name] || '일반 길드원');
-    const rankB = masterB ? '길드마스터' : (Store.getMemberRanks()[b.name] || '일반 길드원');
-    
-    const orderA = ['길드마스터', ...Store.getRanks(a.guild).map(r => r.name), '일반 길드원'];
-    const orderB = ['길드마스터', ...Store.getRanks(b.guild).map(r => r.name), '일반 길드원'];
-
-    const idxA = orderA.indexOf(rankA);
-    const idxB = orderB.indexOf(rankB);
-    
-    if (idxA !== idxB) return idxA - idxB;
     return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
   });
 
@@ -1454,7 +1441,7 @@ function renderSuro(container) {
     ? members.filter(n => n.toLowerCase().includes(state.suroSearch.toLowerCase()))
     : [...members]; // 복사본 생성
 
-  // OCR로 인식된 인원들을 우선순위로 최상단 정렬, 나머지는 가나다순
+  // 1순위: OCR 인식 여부 (입력 편의를 위해 유지), 2순위: 단순 유니코드(Excel) 순
   searchResults.sort((a, b) => {
     const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
     const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
@@ -2324,12 +2311,6 @@ function renderRankAssignmentRows() {
   const members = (state.guildMembers[state.rankAssignGuild] || [])
     .filter(n => n.toLowerCase().includes(state.rankSearch.toLowerCase()))
     .sort((a, b) => {
-      const isMasterA = state.guildData[state.rankAssignGuild]?.guild_master_name === a;
-      const isMasterB = state.guildData[state.rankAssignGuild]?.guild_master_name === b;
-      const rA = isMasterA ? '길드마스터' : (memberRanks[a] || '일반 길드원');
-      const rB = isMasterB ? '길드마스터' : (memberRanks[b] || '일반 길드원');
-      const diff = rankOrder.indexOf(rA) - rankOrder.indexOf(rB);
-      if (diff !== 0) return diff;
       return a < b ? -1 : (a > b ? 1 : 0);
     });
 
