@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>길드 관리 시스템</title>
+  
+  <!-- Fonts -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- Tesseract.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" style="position:fixed;inset:0;background:#030305;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s;">
+    <div style="width:40px;height:40px;border:3px solid rgba(99,102,241,0.3);border-top-color:#6366f1;border-radius:50%;animation:spin 1s infinite linear;"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- Onboarding Screen (First-time Setup)         -->
+  <!-- ============================================ -->
+  <div id="onboardingScreen" style="display:none;">
+    <div class="onboarding-container">
+      <div class="onboarding-card">
+        <!-- Step Indicator -->
+        <div class="onboarding-steps">
+          <div class="step-dot active" data-step="1"></div>
+          <div class="step-line"></div>
+          <div class="step-dot" data-step="2"></div>
+          <div class="step-line"></div>
+          <div class="step-dot" data-step="3"></div>
+        </div>
+
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-step active" id="onboardStep1">
+          <div class="onboarding-icon">
+            <i class="fas fa-cube"></i>
+          </div>
+          <h1 class="onboarding-title">길드 관리 시스템</h1>
+          <p class="onboarding-desc">메이플스토리 길드를 효율적으로 관리하세요.<br>먼저 기본 정보를 설정합니다.</p>
+          <button class="btn btn-primary onboarding-btn" onclick="nextOnboardStep(2)">시작하기</button>
+        </div>
+
+        <!-- Step 2: World & Guild Setup -->
+        <div class="onboarding-step" id="onboardStep2">
+          <div class="onboarding-icon small">
+            <i class="fas fa-globe-asia"></i>
+          </div>
+          <h2 class="onboarding-title">월드 및 길드 설정</h2>
+          <p class="onboarding-desc">소속 월드와 관리할 길드를 입력해주세요.</p>
+          
+          <div class="onboarding-form">
+            <div class="form-group">
+              <label class="label-sm">월드 이름</label>
+              <select class="input-field" id="setupWorld">
+                <option value="">월드를 선택하세요</option>
+                <option value="스카니아">스카니아</option>
+                <option value="베라">베라</option>
+                <option value="루나">루나</option>
+                <option value="제니스">제니스</option>
+                <option value="크로아">크로아</option>
+                <option value="유니온">유니온</option>
+                <option value="엘리시움">엘리시움</option>
+                <option value="이노시스">이노시스</option>
+                <option value="레드">레드</option>
+                <option value="오로라">오로라</option>
+                <option value="아케인">아케인</option>
+                <option value="노바">노바</option>
+                <option value="리부트">리부트</option>
+                <option value="리부트2">리부트2</option>
+                <option value="버닝">버닝</option>
+                <option value="버닝2">버닝2</option>
+                <option value="버닝3">버닝3</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="label-sm">길드 이름 (메인 길드)</label>
+              <input type="text" class="input-field" id="setupGuildName" placeholder="길드 이름을 입력하세요">
+            </div>
+
+            <div id="setupError" style="color:var(--danger);font-size:0.85rem;display:none;margin-top:0.5rem;"></div>
+          </div>
+
+          <div style="display:flex;gap:1rem;margin-top:2rem;">
+            <button class="btn btn-glass onboarding-btn" onclick="nextOnboardStep(1)">이전</button>
+            <button class="btn btn-primary onboarding-btn" onclick="validateAndNext()" id="setupNextBtn">다음</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Confirmation -->
+        <div class="onboarding-step" id="onboardStep3">
+          <div class="onboarding-icon small">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <h2 class="onboarding-title">설정 완료!</h2>
+          <p class="onboarding-desc" id="setupSummary">준비가 완료되었습니다.</p>
+          
+          <div class="setup-summary-card" id="setupSummaryCard">
+            <!-- Populated by JS -->
+          </div>
+
+          <p class="onboarding-desc" style="font-size:0.85rem;color:var(--text-muted);margin-top:1rem;">
+            설정 화면에서 언제든 길드를 추가/삭제할 수 있습니다.
+          </p>
+
+          <button class="btn btn-primary onboarding-btn" onclick="completeSetup()">길드 관리 시작</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- Main App (Hidden until setup complete)       -->
+  <!-- ============================================ -->
+  <div id="app" style="display:none;">
+    <!-- Navigation Rail -->
+    <aside class="nav-rail">
+      <div class="logo-area" onclick="location.reload()">
+        <i class="fas fa-cube"></i>
+      </div>
+      
+      <nav class="nav-menu">
+        <button class="nav-item active" onclick="router('dashboard')" data-tooltip="대시보드">
+          <i class="fas fa-th-large"></i>
+        </button>
+        <button class="nav-item" onclick="router('members')" data-tooltip="길드원">
+          <i class="fas fa-users"></i>
+        </button>
+        <button class="nav-item" onclick="router('suro')" data-tooltip="수로 점수 관리">
+          <i class="fas fa-chart-pie"></i>
+        </button>
+        <button class="nav-item" onclick="router('ranking')" data-tooltip="길드 랭킹">
+          <i class="fas fa-trophy"></i>
+        </button>
+        <button class="nav-item" onclick="router('penalty')" data-tooltip="벌점 관리">
+          <i class="fas fa-gavel"></i>
+        </button>
+        <button class="nav-item" onclick="router('ranks')" data-tooltip="직위 관리">
+          <i class="fas fa-id-badge"></i>
+        </button>
+        <button class="nav-item" onclick="router('history')" data-tooltip="히스토리">
+          <i class="fas fa-history"></i>
+        </button>
+        <div style="flex:1"></div>
+        <button class="nav-item" onclick="router('settings')" data-tooltip="설정">
+          <i class="fas fa-cog"></i>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-canvas">
+      <header class="top-bar">
+        <div class="page-title">
+          <h2 id="pageTitle">대시보드</h2>
+        </div>
+        
+        <div class="status-badges">
+          <div class="status-badge accent">
+            <i class="fas fa-signal"></i> <span id="apiStatusText">정상 작동</span>
+          </div>
+          <div class="status-badge" id="anniversaryBadge">
+            <i class="fas fa-clock"></i> <span id="anniversaryLabel">로딩 중...</span>
+          </div>
+          <button class="btn-glass" id="refreshBtn" style="padding:0.4rem 0.8rem;border-radius:99px;cursor:pointer;">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </header>
+      
+      <div id="contentArea" class="content-scroll">
+        <!-- Dynamic Content Injected Here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="charDetailModal">
+    <div class="modal-content">
+      <!-- Injected via JS -->
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="penaltyModal">
+    <div class="modal-content" style="max-width:500px;">
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(239, 68, 68, 0.1);display:flex;align-items:center;justify-content:center;color:var(--danger);">
+          <i class="fas fa-gavel" style="font-size:1.2rem;"></i>
+        </div>
+        <h3 style="font-size:1.2rem;font-weight:800;">벌점 관리</h3>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div>
+            <label class="label-sm">날짜</label>
+            <input type="date" class="input-field" id="penaltyDate">
+          </div>
+          <div>
+            <label class="label-sm">벌점 수치</label>
+            <select class="input-field" id="penaltyPoints">
+              <option value="1">1점</option>
+              <option value="2">2점</option>
+              <option value="3">3점</option>
+              <option value="5">5점</option>
+              <option value="10">10점 (중대 위반)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="label-sm">대상 길드원</label>
+          <select class="input-field" id="penaltyTarget"><option>길드원 선택...</option></select>
+        </div>
+
+        <div>
+          <label class="label-sm">사유 입력</label>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+            <button class="btn btn-glass" style="padding:0.3rem 0.6rem;font-size:0.7rem;" onclick="setPenaltyReason('수로 미참여', 2)">#수로 미참</button>
+            <button class="btn btn-glass" style="padding:0.3rem 0.6rem;font-size:0.7rem;" onclick="setPenaltyReason('플래그 미참여', 1)">#플래그 미참</button>
+            <button class="btn btn-glass" style="padding:0.3rem 0.6rem;font-size:0.7rem;" onclick="setPenaltyReason('비매너 행위', 10)">#비매너</button>
+            <button class="btn btn-glass" style="padding:0.3rem 0.6rem;font-size:0.7rem;" onclick="setPenaltyReason('공지 미확인', 1)">#공지 미확인</button>
+          </div>
+          <textarea class="input-field" id="penaltyReason" rows="3" placeholder="상세 사유를 입력하세요..."></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:2rem;display:flex;justify-content:flex-end;gap:1rem;">
+        <button class="btn btn-glass" onclick="closeModal('penaltyModal')">취소</button>
+        <button class="btn btn-primary" style="padding:0.8rem 2rem;" onclick="submitPenalty()">부여하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="suroInputModal">
+    <div class="modal-content" style="max-width:600px">
+      <h3 style="margin-bottom:1.5rem;">📊 수로 점수 입력</h3>
+      <div id="suroInputBody"></div>
+      <div style="margin-top:1.5rem;display:flex;justify-content:flex-end;gap:1rem;">
+        <button class="btn btn-glass" onclick="closeModal('suroInputModal')">닫기</button>
+        <button class="btn btn-primary" onclick="saveSuroInputs()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Guild Modal -->
+  <div class="modal-overlay" id="addGuildModal">
+    <div class="modal-content" style="max-width:450px;">
+      <h3 style="margin-bottom:1.5rem;font-size:1.2rem;">➕ 길드 추가</h3>
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <div>
+          <label class="label-sm">길드 이름</label>
+          <input type="text" class="input-field" id="addGuildName" placeholder="추가할 길드 이름">
+        </div>
+        <div>
+          <label class="label-sm">유형 (선택)</label>
+          <input type="text" class="input-field" id="addGuildType" placeholder="예: 부캐 1, 부캐 2...">
+        </div>
+        <div id="addGuildError" style="color:var(--danger);font-size:0.85rem;display:none;"></div>
+      </div>
+      <div style="margin-top:2rem;display:flex;justify-content:flex-end;gap:1rem;">
+        <button class="btn btn-glass" onclick="closeModal('addGuildModal')">취소</button>
+        <button class="btn btn-primary" onclick="submitAddGuild()">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
