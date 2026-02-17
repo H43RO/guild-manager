@@ -1644,90 +1644,105 @@ async function startOCR(input) {
   let processedNames = 0;
 
   const currentMembers = state.guildMembers[state.suroGuild] || [];
+  const SIMILARITY_THRESHOLD = 0.5;
   
   try {
     const worker = await Tesseract.createWorker('kor+eng');
-    
     const allDetected = [];
-    const SIMILARITY_THRESHOLD = 0.4; // 유사도 40% 이상이면 매칭 시도
 
     for (let i = 0; i < totalFiles; i++) {
-      statusCtx.textContent = `파일 분석 중 (${i+1}/${totalFiles})`;
-      const { data: { text } } = await worker.recognize(files[i]);
+      statusCtx.textContent = `이미지 분석 중 (${i+1}/${totalFiles})`;
+      const { data } = await worker.recognize(files[i]);
+      const words = data.words;
+
+      // 1. 헤더 찾기 (기준점 확보 - 핵심 키워드 포함여부로 판단)
+      const nameHeader = words.find(w => w.text.includes('닉네') || w.text.includes('네임'));
+      const suroHeader = words.find(w => w.text.includes('수로') || w.text.includes('지하') || w.text.includes('지하수'));
+
+      if (!nameHeader || !suroHeader) {
+        console.warn("헤더를 찾을 수 없어 기본 모드로 분석합니다.");
+        // 기본 모드 생략 (헤더가 없으면 정확도가 현저히 낮으므로 패스하거나 기존 로직 사용)
+        continue;
+      }
+
+      // 2. 컬럼 영역 정의 (닉네임 열 vs 수로 열)
+      const nameColLeft = nameHeader.bbox.x0 - 20;
+      const nameColRight = nameHeader.bbox.x1 + 30;
       
-      const lines = text.split('\n');
-      lines.forEach(line => {
-        const tokens = line.split(/\s+/).filter(t => t.length > 0);
-        if (tokens.length >= 2) {
-          // Find the best matching member for this line using fuzzy matching
+      const suroColLeft = suroHeader.bbox.x0 - 100; // 숫자는 왼쪽으로 길 수 있음
+      const suroColRight = suroHeader.bbox.x1 + 60;
+      
+      const tableTop = nameHeader.bbox.y1;
+
+      // 3. 해당 영역의 단어들 추출
+      const nicknamesInCol = words.filter(w => 
+        w.bbox.x0 >= nameColLeft && w.bbox.x1 <= nameColRight && w.bbox.y0 > tableTop
+      );
+
+      const scoresInCol = words.filter(w => 
+        w.bbox.x0 >= suroColLeft && w.bbox.x1 <= suroColRight && w.bbox.y0 > tableTop
+      );
+
+      // 4. 수직 위치(Y)를 기준으로 닉네임과 점수 매칭
+      // 닉네임 하나하나에 대해 가장 가까운 Y 좌표를 가진 점수를 찾음
+      nicknamesInCol.forEach(nameWord => {
+        const nameY = (nameWord.bbox.y0 + nameWord.bbox.y1) / 2;
+        const nameRaw = nameWord.text.trim();
+        if (nameRaw.length < 2) return;
+
+        // 가장 가까운 점수 찾기 (오차 범위 20px 내외)
+        const matchedScoreWord = scoresInCol.find(sw => {
+          const scoreY = (sw.bbox.y0 + sw.bbox.y1) / 2;
+          return Math.abs(nameY - scoreY) < 15; // 한 행의 높이 고려
+        });
+
+        if (matchedScoreWord) {
+          let scoreStr = matchedScoreWord.text.replace(/[^0-9]/g, '');
+          if (!scoreStr) return;
+
+          // 길드원 매칭
           let bestMatch = null;
           let highestScore = 0;
-          
-          // Look at the first few tokens as they are likely nicknames
-          const nameCandidate = tokens[0];
-
           currentMembers.forEach(m => {
-            const score = getSimilarity(nameCandidate, m);
+            const score = getSimilarity(nameRaw, m);
             if (score > highestScore) {
               highestScore = score;
               bestMatch = m;
             }
           });
 
-          let scoreStr = '';
-          if (tokens.length >= 6) {
-            let candidate = tokens[5].replace(/[^0-9]/g, '');
-            if (!isNaN(candidate) && candidate.length > 0) {
-              scoreStr = Number(candidate).toLocaleString();
-            }
-          }
-          
-          if (!scoreStr) {
-            const numericTokens = tokens.filter(t => /[0-9,]{2,}/.test(t));
-            const possibleScores = numericTokens
-              .map(t => t.replace(/[^0-9]/g, ''))
-              .filter(n => n.length >= 3);
-            if (possibleScores.length > 0) {
-              scoreStr = Number(possibleScores[possibleScores.length - 1]).toLocaleString();
-            }
-          }
-
-          if (scoreStr) {
-            allDetected.push(`${nameCandidate}(인식) -> ${highestScore > SIMILARITY_THRESHOLD ? bestMatch : '미매칭'}: ${scoreStr}`);
-            
-            if (highestScore > SIMILARITY_THRESHOLD && bestMatch) {
-              const inputEl = document.querySelector(`.suro-input-direct[data-name="${bestMatch}"]`);
-              if (inputEl) {
-                inputEl.value = scoreStr;
-                processedNames++;
-              }
+          if (highestScore > SIMILARITY_THRESHOLD && bestMatch) {
+            const inputEl = document.querySelector(`.suro-input-direct[data-name="${bestMatch}"]`);
+            if (inputEl) {
+              inputEl.value = Number(scoreStr).toLocaleString();
+              processedNames++;
+              allDetected.push(`${nameRaw} -> ${bestMatch}: ${Number(scoreStr).toLocaleString()}`);
             }
           }
         }
       });
-      
+
       const progress = ((i + 1) / totalFiles) * 100;
       percentCtx.textContent = `${Math.round(progress)}%`;
       barCtx.style.width = `${progress}%`;
     }
-    
+
     await worker.terminate();
     
-    // Show debug alert
     if (allDetected.length > 0) {
-      alert("--- OCR 인식 테스트 결과 ---\n" + allDetected.join('\n'));
+      alert("--- OCR 인식 결과 ---\n" + allDetected.join('\n'));
     } else {
-      alert("인식된 데이터가 없습니다.");
+      alert("인식된 길드원 데이터가 없습니다. 스크린샷이 길드 참여 현황 화면인지 확인해주세요.");
     }
+    
     statusCtx.textContent = `분석 완료! (${processedNames}명 인식됨)`;
     setTimeout(() => { progressArea.style.display = 'none'; }, 3000);
-    
+
   } catch (err) {
     console.error(err);
     statusCtx.textContent = '분석 중 오류 발생';
-    statusCtx.style.color = 'var(--danger)';
   } finally {
-    input.value = ''; // Reset input
+    input.value = '';
   }
 }
 
