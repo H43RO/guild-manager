@@ -228,7 +228,8 @@ const state = {
   analysisSort: { field: 'score', order: 'desc' },
   rankSearch: '',
   rankAssignGuild: null,
-  rankConfigGuild: null
+  rankConfigGuild: null,
+  ocrRecognized: [] // 최근 OCR로 인식된 인원들
 };
 
 // ── Utils ───────────────────────────────────────────────────
@@ -1455,9 +1456,18 @@ function renderSuro(container) {
   const scored = members.map(n => ({ name: n, score: Number(data[n]) || 0 })).sort((a,b) => b.score - a.score);
   
   // Section 2 Data: Search/Input
-  const searchResults = state.suroSearch 
+  let searchResults = state.suroSearch 
     ? members.filter(n => n.toLowerCase().includes(state.suroSearch.toLowerCase()))
-    : members; // Show ALL members by default
+    : [...members]; // 복사본 생성
+
+  // OCR로 인식된 인원들을 우선순위로 최상단 정렬
+  if (state.ocrRecognized && state.ocrRecognized.length > 0) {
+    searchResults.sort((a, b) => {
+      const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
+      const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
+      return bRecog - aRecog; // 인식된 사람이 위로
+    });
+  }
 
   // Section 3 Data: Non-participants
   const nonParticipants = members.filter(n => (Number(data[n]) || 0) === 0);
@@ -1577,13 +1587,18 @@ function renderSuro(container) {
 
 function renderSuroSearchList(list, currentData) {
   if (list.length === 0) return '<div style="text-align:center;padding:2rem;color:var(--text-muted);">검색 결과가 없습니다.</div>';
-  return list.map(n => `
+  return list.map(n => {
+    const isRecognized = state.ocrRecognized && state.ocrRecognized.includes(n);
+    return `
     <div class="suro-input-row" 
-      style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.04);padding:0.75rem 1.25rem;border-radius:16px;border:1px solid var(--border-subtle);transition:all 0.2s ease;"
+      style="display:flex;align-items:center;justify-content:space-between;background:${isRecognized ? 'rgba(249, 115, 22, 0.08)' : 'rgba(255,255,255,0.04)'};padding:0.75rem 1.25rem;border-radius:16px;border:1px solid ${isRecognized ? 'var(--primary)' : 'var(--border-subtle)'};transition:all 0.2s ease;"
       onmouseenter="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(249, 115, 22, 0.3)';"
-      onmouseleave="this.style.background='rgba(255,255,255,0.04)';this.style.borderColor='var(--border-subtle)';"
+      onmouseleave="this.style.background='${isRecognized ? 'rgba(249, 115, 22, 0.08)' : 'rgba(255,255,255,0.04)'}';this.style.borderColor='${isRecognized ? 'var(--primary)' : 'var(--border-subtle)'}'"
     >
-      <span style="font-weight:700;font-size:1rem;color:var(--text-main);">${n}</span>
+      <div style="display:flex; flex-direction:column; gap:0.25rem;">
+        <span style="font-weight:700;font-size:1rem;color:var(--text-main);">${n}</span>
+        ${isRecognized ? '<span style="font-size:0.65rem; color:var(--primary); font-weight:700;"><i class="fas fa-check-circle"></i> 스캔 인식됨</span>' : ''}
+      </div>
       <input type="text" 
         inputmode="numeric"
         class="suro-input-direct" 
@@ -1592,24 +1607,31 @@ function renderSuroSearchList(list, currentData) {
         placeholder="0"
         style="width:160px;background:transparent;border:none;border-bottom:2px solid var(--border-subtle);color:var(--primary);text-align:right;outline:none;font-weight:900;font-family:'Pretendard Variable', monospace;font-size:1.4rem;transition:all 0.2s ease;padding:0.25rem 0;"
         onfocus="this.style.borderBottomColor='var(--primary)';this.style.transform='scale(1.05)';this.parentElement.style.borderColor='var(--primary)';"
-        onblur="this.style.borderBottomColor='var(--border-subtle)';this.style.transform='scale(1)';this.parentElement.style.borderColor='rgba(255,255,255,0.08)';"
+        onblur="this.style.borderBottomColor='var(--border-subtle)';this.style.transform='scale(1)';this.parentElement.style.borderColor='${isRecognized ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}';"
         oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',')"
         onwheel="this.blur();"
       >
     </div>
-  `).join('');
+  `}).join('');
 }
 
 function updateSuroSearchView() {
   const week = getSuroWeekKey();
   const data = Store.getSuro(week);
   const members = state.guildMembers[state.suroGuild] || [];
-  const searchResults = state.suroSearch 
+  let searchResults = state.suroSearch 
     ? members.filter(n => n.toLowerCase().includes(state.suroSearch.toLowerCase()))
-    : members;
+    : [...members];
+
+  if (state.ocrRecognized && state.ocrRecognized.length > 0) {
+    searchResults.sort((a, b) => {
+      const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
+      const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
+      return bRecog - aRecog;
+    });
+  }
   
-  const container = document.getElementById('suroSearchArea');
-  if (container) container.innerHTML = renderSuroSearchList(searchResults, data);
+  document.getElementById('suroSearchArea').innerHTML = renderSuroSearchList(searchResults, data);
 }
 
 function saveSuroInputsInPage() {
@@ -1647,6 +1669,7 @@ async function startOCR(input) {
   const SIMILARITY_THRESHOLD = 0.5;
   
   try {
+    state.ocrRecognized = []; // 분석 전 리스트 초기화
     const worker = await Tesseract.createWorker('kor+eng');
     const allDetected = [];
 
@@ -1714,6 +1737,8 @@ async function startOCR(input) {
           });
 
           if (highestScore > SIMILARITY_THRESHOLD && bestMatch) {
+            if (!state.ocrRecognized.includes(bestMatch)) state.ocrRecognized.push(bestMatch);
+            
             const inputEl = document.querySelector(`.suro-input-direct[data-name="${bestMatch}"]`);
             if (inputEl) {
               inputEl.value = Number(scoreStr).toLocaleString();
@@ -1738,6 +1763,7 @@ async function startOCR(input) {
     }
     
     statusCtx.textContent = `분석 완료! (${processedNames}명 인식됨)`;
+    renderSuro(document.getElementById('contentArea')); // 리스트 순서 업데이트를 위해 재렌더링
     setTimeout(() => { progressArea.style.display = 'none'; }, 3000);
 
   } catch (err) {
