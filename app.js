@@ -859,13 +859,7 @@ function renderMemberList() {
     const idxB = orderB.indexOf(rankB);
     
     if (idxA !== idxB) return idxA - idxB;
-
-    const dA = state.charDetails[a.name];
-    const dB = state.charDetails[b.name];
-    if (dA && dB) return dB.level - dA.level;
-    if (dA) return -1;
-    if (dB) return 1;
-    return a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name, 'ko');
   });
 
   list.innerHTML = members.map(m => {
@@ -1460,17 +1454,16 @@ function renderSuro(container) {
     ? members.filter(n => n.toLowerCase().includes(state.suroSearch.toLowerCase()))
     : [...members]; // 복사본 생성
 
-  // OCR로 인식된 인원들을 우선순위로 최상단 정렬
-  if (state.ocrRecognized && state.ocrRecognized.length > 0) {
-    searchResults.sort((a, b) => {
-      const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
-      const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
-      return bRecog - aRecog; // 인식된 사람이 위로
-    });
-  }
+  // OCR로 인식된 인원들을 우선순위로 최상단 정렬, 나머지는 가나다순
+  searchResults.sort((a, b) => {
+    const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
+    const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
+    if (aRecog !== bRecog) return bRecog - aRecog;
+    return a.localeCompare(b, 'ko');
+  });
 
   // Section 3 Data: Non-participants
-  const nonParticipants = members.filter(n => (Number(data[n]) || 0) === 0);
+  const nonParticipants = members.filter(n => (Number(data[n]) || 0) === 0).sort((a, b) => a.localeCompare(b, 'ko'));
 
   container.innerHTML = `
     <div class="fade-in" style="height:100%;display:flex;flex-direction:column;gap:1.5rem;">
@@ -1623,13 +1616,12 @@ function updateSuroSearchView() {
     ? members.filter(n => n.toLowerCase().includes(state.suroSearch.toLowerCase()))
     : [...members];
 
-  if (state.ocrRecognized && state.ocrRecognized.length > 0) {
-    searchResults.sort((a, b) => {
-      const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
-      const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
-      return bRecog - aRecog;
-    });
-  }
+  searchResults.sort((a, b) => {
+    const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
+    const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
+    if (aRecog !== bRecog) return bRecog - aRecog;
+    return a.localeCompare(b, 'ko');
+  });
   
   document.getElementById('suroSearchArea').innerHTML = renderSuroSearchList(searchResults, data);
 }
@@ -2336,7 +2328,9 @@ function renderRankAssignmentRows() {
       const isMasterB = state.guildData[state.rankAssignGuild]?.guild_master_name === b;
       const rA = isMasterA ? '길드마스터' : (memberRanks[a] || '일반 길드원');
       const rB = isMasterB ? '길드마스터' : (memberRanks[b] || '일반 길드원');
-      return rankOrder.indexOf(rA) - rankOrder.indexOf(rB);
+      const diff = rankOrder.indexOf(rA) - rankOrder.indexOf(rB);
+      if (diff !== 0) return diff;
+      return a.localeCompare(b, 'ko');
     });
 
   if (members.length === 0) {
