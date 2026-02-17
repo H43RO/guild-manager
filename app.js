@@ -1669,7 +1669,7 @@ async function startOCR(input) {
       const nameColLeft = nameHeader.bbox.x0 - 20;
       const nameColRight = nameHeader.bbox.x1 + 30;
       
-      const suroColLeft = suroHeader.bbox.x0 - 100; // 숫자는 왼쪽으로 길 수 있음
+      const suroColLeft = suroHeader.bbox.x0 - 50; // 주간 미션과 겹치지 않도록 범위 축소
       const suroColRight = suroHeader.bbox.x1 + 60;
       
       const tableTop = nameHeader.bbox.y1;
@@ -1684,21 +1684,23 @@ async function startOCR(input) {
       );
 
       // 4. 수직 위치(Y)를 기준으로 닉네임과 점수 매칭
-      // 닉네임 하나하나에 대해 가장 가까운 Y 좌표를 가진 점수를 찾음
       nicknamesInCol.forEach(nameWord => {
         const nameY = (nameWord.bbox.y0 + nameWord.bbox.y1) / 2;
         const nameRaw = nameWord.text.trim();
         if (nameRaw.length < 2) return;
 
-        // 가장 가까운 점수 찾기 (오차 범위 20px 내외)
-        const matchedScoreWord = scoresInCol.find(sw => {
+        // 같은 줄(Y)에 있는 점수 후보들을 모두 찾음
+        const candidates = scoresInCol.filter(sw => {
           const scoreY = (sw.bbox.y0 + sw.bbox.y1) / 2;
-          return Math.abs(nameY - scoreY) < 15; // 한 행의 높이 고려
+          return Math.abs(nameY - scoreY) < 15;
         });
 
-        if (matchedScoreWord) {
+        if (candidates.length > 0) {
+          // 주간 미션(왼쪽)이 섞이는 것을 방지하기 위해 '가장 오른쪽에 있는 것'을 선택
+          const matchedScoreWord = candidates.sort((a, b) => b.bbox.x1 - a.bbox.x1)[0];
+          
           let scoreStr = matchedScoreWord.text.replace(/[^0-9]/g, '');
-          if (!scoreStr) return;
+          if (!scoreStr || scoreStr.length === 0) return;
 
           // 길드원 매칭
           let bestMatch = null;
