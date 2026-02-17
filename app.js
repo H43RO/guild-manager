@@ -598,15 +598,16 @@ function renderDashboard(container) {
     <div class="dashboard-grid fade-in">
       
       <!-- [1] 상단 메인 대시보드 타이틀 -->
-      <div class="col-span-12" style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <h1 style="font-size:3rem; font-weight:900; letter-spacing:-0.03em; color:var(--primary);">${mainGuildName}</h1>
-          <p style="color:var(--text-muted); font-size:1.1rem; font-weight:600;">길드 운영 통합 관리</p>
-        </div>
-        <div style="display:flex; gap:1rem;">
-          <div class="premium-card" style="padding:1rem 2rem; border-radius:20px; display:flex; align-items:center; gap:1rem;">
-            <div style="width:10px; height:10px; border-radius:50%; background:var(--primary); box-shadow:0 0 10px var(--primary);"></div>
-            <span style="font-weight:700; font-size:0.9rem;">${Store.getWorld()} 월드 서버 연결 중</span>
+      <div class="col-span-12">
+        <div class="hero-card">
+          <div style="z-index:1;">
+            <div class="sub-label" style="opacity:0.8;">${Store.getWorld()} 월드</div>
+            <h1 style="font-size:2.5rem;font-weight:900;margin-bottom:0.5rem;background:linear-gradient(to right, #fff, var(--primary)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">${mainGuildName}</h1>
+            <p style="color:var(--text-muted);">연맹 대시보드 시스템에 접속했습니다.</p>
+          </div>
+          <div class="floating-stat hide-mobile" style="text-align:right;z-index:1;">
+            <div class="value-xl">${occupancyRate}%</div>
+            <div class="label-sm">전체 점유율</div>
           </div>
         </div>
       </div>
@@ -1464,22 +1465,23 @@ function renderSuro(container) {
   container.innerHTML = `
     <div class="fade-in" style="height:100%;display:flex;flex-direction:column;gap:1.5rem;">
       <!-- Guild Selector -->
-      <div style="display:flex;justify-content:space-between;align-items:center;shrink-0;">
-        <div style="display:flex;gap:0.5rem;">
+      <div class="flex-responsive" style="justify-content:space-between;align-items:center;shrink-0;">
+        <div style="display:flex;gap:0.5rem; overflow-x:auto; scrollbar-width:none; padding-bottom:5px;">
           ${guilds.map(g => `
             <button class="btn ${state.suroGuild === g.name ? 'btn-primary' : 'btn-glass'}" 
+              style="white-space:nowrap; border-radius:99px;"
               onclick="state.suroGuild='${g.name}';renderSuro(document.getElementById('contentArea'))">
               ${g.name}
             </button>
           `).join('')}
         </div>
-        <div style="font-size:0.9rem;color:var(--text-muted);font-weight:700;">
+        <div class="hide-mobile" style="font-size:0.9rem;color:var(--text-muted);font-weight:700;">
           기준일: <span style="color:var(--primary)">${week} (목)</span>
         </div>
       </div>
 
       <!-- Main 3-Section Layout -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;flex:1;min-height:0;">
+      <div class="suro-grid-responsive" style="gap:1.5rem;flex:1;min-height:0;">
         
         <!-- 1. Leaderboard Section -->
         <div class="bento-item" style="padding:0;display:flex;flex-direction:column;overflow:hidden;">
@@ -1835,7 +1837,7 @@ function renderPenalty(container) {
     <div class="fade-in" style="height:100%;display:flex;flex-direction:column;gap:1.5rem;">
       
       <!-- Stats Row -->
-      <div style="display:grid;grid-template-columns: repeat(3, 1fr); gap:1.5rem;">
+      <div class="penalty-stats-grid" style="gap:1.5rem;">
         <div class="bento-item" style="padding:1.25rem;">
           <span class="label-sm">이번 달 총 벌점</span>
           <div style="display:flex;align-items:baseline;gap:0.5rem;">
@@ -1995,7 +1997,7 @@ function renderSettings(container) {
           ${Store._isStatic ? 'GitHub IO와 같은 정식 서버가 없는 환경에서는 브라우저에 데이터가 저장됩니다. 데이터를 다른 기기로 옮기려면 백업/복원 기능을 이용하세요.' : '내부 데이터 파일(data.json)과 연동되어 안전하게 관리되고 있습니다.'}
         </p>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+        <div class="data-mgmt-grid" style="gap:1rem; margin-bottom:1.5rem;">
           <button class="btn btn-glass" onclick="Store.exportData()" style="justify-content:center;">
             <i class="fas fa-download" style="margin-right:0.5rem;"></i> JSON 백업 (Export)
           </button>
@@ -2104,7 +2106,7 @@ function renderRanks(container) {
   if (!state.rankAssignGuild) state.rankAssignGuild = guilds[0]?.name || '';
 
   container.innerHTML = `
-    <div class="fade-in" style="height:100%; display:grid; grid-template-columns: 440px 1fr; gap:2rem;">
+    <div class="fade-in rank-management-grid" style="height:100%; gap:2rem;">
       <!-- Left: Rank Configuration -->
       <div id="rankConfigArea" style="display:flex; flex-direction:column; gap:1.5rem; min-height:0;">
         ${renderRankManagement()}
@@ -2236,7 +2238,7 @@ function renderRankAssignment() {
 
   return `
     <div style="display:flex;flex-direction:column;gap:1.5rem;height:100%;">
-      <div style="display:flex;justify-content:space-between;align-items:center;shrink-0;">
+      <div class="flex-responsive" style="justify-content:space-between;align-items:center;shrink-0; gap:1rem;">
         <div style="display:flex;gap:0.5rem; overflow-x:auto; scrollbar-width:none;">
           ${guilds.map(g => `
             <button class="btn ${state.rankAssignGuild === g.name ? 'btn-primary' : 'btn-glass'}" 
