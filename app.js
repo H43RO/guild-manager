@@ -593,7 +593,7 @@ function renderDashboard(container) {
       }
     });
   });
-  const topSuroMembers = allMembersSuro.sort((a,b) => b.score - a.score).slice(0, 5);
+  const topSuroMembers = allMembersSuro.sort((a,b) => (b.score - a.score) || (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0))).slice(0, 5);
 
   container.innerHTML = `
     <div class="dashboard-grid fade-in">
@@ -1434,7 +1434,7 @@ function renderSuro(container) {
   const members = state.guildMembers[state.suroGuild] || [];
   
   // Section 1 Data: Leaderboard
-  const scored = members.map(n => ({ name: n, score: Number(data[n]) || 0 })).sort((a,b) => b.score - a.score);
+  const scored = members.map(n => ({ name: n, score: Number(data[n]) || 0 })).sort((a,b) => (b.score - a.score) || (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0)));
   
   // Section 2 Data: Search/Input
   let searchResults = state.suroSearch 
@@ -2386,7 +2386,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         mutations.forEach((m) => {
           if (m.target.id === 'penaltyModal' && m.target.classList.contains('visible')) {
             const sel = document.getElementById('penaltyTarget');
-            const all = Object.values(state.guildMembers).flat().sort();
+             const all = Object.values(state.guildMembers).flat().sort((a, b) => a < b ? -1 : (a > b ? 1 : 0));
             sel.innerHTML = all.map(n => `<option value="${n}">${n}</option>`).join('');
           }
         });
