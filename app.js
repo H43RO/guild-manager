@@ -859,7 +859,7 @@ function renderMemberList() {
     const idxB = orderB.indexOf(rankB);
     
     if (idxA !== idxB) return idxA - idxB;
-    return a.name.localeCompare(b.name, 'ko');
+    return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
   });
 
   list.innerHTML = members.map(m => {
@@ -1459,11 +1459,11 @@ function renderSuro(container) {
     const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
     const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
     if (aRecog !== bRecog) return bRecog - aRecog;
-    return a.localeCompare(b, 'ko');
+    return a < b ? -1 : (a > b ? 1 : 0);
   });
 
   // Section 3 Data: Non-participants
-  const nonParticipants = members.filter(n => (Number(data[n]) || 0) === 0).sort((a, b) => a.localeCompare(b, 'ko'));
+  const nonParticipants = members.filter(n => (Number(data[n]) || 0) === 0).sort((a, b) => a < b ? -1 : (a > b ? 1 : 0));
 
   container.innerHTML = `
     <div class="fade-in" style="height:100%;display:flex;flex-direction:column;gap:1.5rem;">
@@ -1620,7 +1620,7 @@ function updateSuroSearchView() {
     const aRecog = state.ocrRecognized.includes(a) ? 1 : 0;
     const bRecog = state.ocrRecognized.includes(b) ? 1 : 0;
     if (aRecog !== bRecog) return bRecog - aRecog;
-    return a.localeCompare(b, 'ko');
+    return a < b ? -1 : (a > b ? 1 : 0);
   });
   
   document.getElementById('suroSearchArea').innerHTML = renderSuroSearchList(searchResults, data);
@@ -2330,7 +2330,7 @@ function renderRankAssignmentRows() {
       const rB = isMasterB ? '길드마스터' : (memberRanks[b] || '일반 길드원');
       const diff = rankOrder.indexOf(rA) - rankOrder.indexOf(rB);
       if (diff !== 0) return diff;
-      return a.localeCompare(b, 'ko');
+      return a < b ? -1 : (a > b ? 1 : 0);
     });
 
   if (members.length === 0) {
